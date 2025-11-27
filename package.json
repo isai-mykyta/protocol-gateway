@@ -1,5 +1,5 @@
 {
-  "name": "charger-auth",
+  "name": "protocol-gateway",
   "version": "1.0.0",
   "main": "index.js",
   "author": "nktisai@gmail.com",
@@ -30,7 +30,9 @@
     "ts-node": "^10.9.2"
   },
   "dependencies": {
+    "@mykyta-isai/logger": "^1.0.1",
     "dotenv": "^17.2.2",
+    "kafkajs": "^2.2.4",
     "reflect-metadata": "^0.2.2",
     "typescript": "^5.9.2"
   }

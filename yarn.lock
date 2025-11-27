@@ -699,10 +699,10 @@
   resolved "https://registry.yarnpkg.com/@mykyta-isai/eslint-config/-/eslint-config-1.0.3.tgz#293ad169e5c2fa2bf39cd76f50299f93214650de"
   integrity sha512-1RZ4g2uiF3V0gVqz5YE3zjKPSclou4JqrB7E112TH3EdTee6q4bSV/MDYoDzoMYlQWdJ46acjwXtlEu/QIz0eA==
 
-"@mykyta-isai/logger@^1.0.1":
-  version "1.0.1"
-  resolved "https://registry.yarnpkg.com/@mykyta-isai/logger/-/logger-1.0.1.tgz#ce5fb1f309a9fd93f1a33fb2323aa261c6c213a7"
-  integrity sha512-I7lzEsXdbVbtjr+IqVJ2b55d12MdTmwvymBSu9xgOgVEAzgRLO7UW7E/NGO6+tj1cpoVFntAR9Fh7i6Lbfws+A==
+"@mykyta-isai/logger@^1.0.5":
+  version "1.0.5"
+  resolved "https://registry.yarnpkg.com/@mykyta-isai/logger/-/logger-1.0.5.tgz#8aaef2642a07ee0f2a0783b11ae56395932e1efb"
+  integrity sha512-RmrdvdkA+KHjxEmSsuqccMCQVMRfYMD1T2sA9Ymy4acDBm79zJcd61kGAxTFStUdd1irN739qI5EC68wQnQmZQ==
   dependencies:
     typescript "^5.9.2"
     winston "^3.18.3"

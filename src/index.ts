@@ -7,24 +7,58 @@ import { logger } from "@mykyta-isai/logger";
 
 import { KAFKA_TOPICS } from "./constants";
 import { KafkaConsumer } from "./kafka";
+import { EachMessagePayload } from "kafkajs";
+
+type CsMessageReceivedPayload = {
+  message: string;
+  identity: string;
+  ipAddress: string;
+  protocol: string;
+  timestamp: number;
+}
 
 const KAFKA_CLIENT_ID = process.env.KAFKA_CLIENT_ID;
 const KAFKA_GROUP_ID = process.env.KAFKA_GROUP_ID;
 const KAFKA_BROKER_URL = process.env.KAFKA_BROKER_URL;
 
-const topics = [
-  KAFKA_TOPICS.WS_CONNECTION_CLOSE, 
-  KAFKA_TOPICS.WS_CONNECTION_OPEN, 
-  KAFKA_TOPICS.WS_MESSAGE_RECEIVED
-];
-
 const kafkaConsumer = new KafkaConsumer({
-  topics,
+  topics: [KAFKA_TOPICS.CS_MESSAGE_RECEIVED],
   brokers: [KAFKA_BROKER_URL],
   clientId: KAFKA_CLIENT_ID,
   groupId: KAFKA_GROUP_ID,
   readFromBeginning: false
 });
+
+const handleCsMessage = async (message: string): Promise<void> => {
+  let parsedMessage: CsMessageReceivedPayload;
+
+  try {
+    parsedMessage = JSON.parse(message);
+  } catch {
+    logger.error(`Failed to parse message payload`);
+    return;
+  }
+
+  logger.info(`CS message received: ${message}`);
+};
+
+const messageHandler = async (payload: EachMessagePayload): Promise<void> => {
+  const { message, topic } = payload;
+  const parsedMessage = message.value.toString();
+
+  logger.info(`New message received: topic - ${topic}, message - ${parsedMessage}`);
+
+  switch (topic) {
+  case KAFKA_TOPICS.CS_MESSAGE_RECEIVED:
+    await handleCsMessage(parsedMessage);
+    return;
+  default:
+    logger.error(`Received message from uknown topic: topic - ${topic}, message - ${parsedMessage}`);
+    return;
+  }
+};
+
+kafkaConsumer.connect(messageHandler);
 
 const shutdown = async () => {
   logger.info("Shutting down gracefully...");

@@ -1,4 +1,10 @@
-import { IsEnum, IsNotEmpty, IsNumber, IsString, IsInt } from "class-validator";
+import { 
+  IsEnum, 
+  IsNotEmpty, 
+  IsNumber, 
+  IsString, 
+  IsPositive 
+} from "class-validator";
 
 import { OcppProtocol } from "../types";
 
@@ -21,6 +27,6 @@ export class CsMessageDto {
 
   @IsNotEmpty()
   @IsNumber()
-  @IsInt()
+  @IsPositive()
   public timestamp: number;
 }

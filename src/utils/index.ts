@@ -1,1 +1,1 @@
-export * from "./validate-dto";
+export * from "./validateDto";

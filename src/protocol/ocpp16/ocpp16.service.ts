@@ -116,10 +116,10 @@ export class Ocpp16Service {
 
     switch (messageType) {
     case OcppMessageType.ERROR:
-      this.handleCallErrorMessage(ocppMessage);
+      await this.handleCallErrorMessage(ocppMessage);
       return;
     case OcppMessageType.RESULT:
-      this.handleCallResultMessage(ocppMessage);
+      await this.handleCallResultMessage(ocppMessage);
       return;
     case OcppMessageType.CALL:
       await this.handleCallMessage(ocppMessage);

@@ -8,14 +8,7 @@ import { logger } from "@mykyta-isai/logger";
 import { KAFKA_TOPICS } from "./constants";
 import { KafkaConsumer } from "./kafka";
 import { EachMessagePayload } from "kafkajs";
-
-type CsMessageReceivedPayload = {
-  message: string;
-  identity: string;
-  ipAddress: string;
-  protocol: string;
-  timestamp: number;
-}
+import { ProtocolService } from "./protocol";
 
 const KAFKA_CLIENT_ID = process.env.KAFKA_CLIENT_ID;
 const KAFKA_GROUP_ID = process.env.KAFKA_GROUP_ID;
@@ -29,18 +22,7 @@ const kafkaConsumer = new KafkaConsumer({
   readFromBeginning: false
 });
 
-const handleCsMessage = async (message: string): Promise<void> => {
-  let parsedMessage: CsMessageReceivedPayload;
-
-  try {
-    parsedMessage = JSON.parse(message);
-  } catch {
-    logger.error(`Failed to parse message payload`);
-    return;
-  }
-
-  logger.info(`CS message received: ${message}`);
-};
+const protocolService = new ProtocolService();
 
 const messageHandler = async (payload: EachMessagePayload): Promise<void> => {
   const { message, topic } = payload;
@@ -50,7 +32,7 @@ const messageHandler = async (payload: EachMessagePayload): Promise<void> => {
 
   switch (topic) {
   case KAFKA_TOPICS.CS_MESSAGE_RECEIVED:
-    await handleCsMessage(parsedMessage);
+    await protocolService.handleCsMessage(parsedMessage);
     return;
   default:
     logger.error(`Received message from uknown topic: topic - ${topic}, message - ${parsedMessage}`);

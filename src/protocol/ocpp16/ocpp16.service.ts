@@ -98,26 +98,32 @@ export class Ocpp16Service {
     return !!this.ocppResponseValidator[action] ? this.validateOcppPayload(payload, this.ocppResponseValidator[action]) : { isValid: true };
   };
 
-  private async handleCallResultMessage(payload: Omit<CsMessageReceivedPayload, "message"> & { message: CallResultMessage }): Promise<void> {
-    const { message } = payload;
+  private async handleCallResultMessage(data: Omit<CsMessageReceivedPayload, "message"> & { message: CallResultMessage }): Promise<void> {
+    const { message } = data;
     const isValidCallResultMessage = this.validateOcppCallResultMessage(message);
 
     if (!isValidCallResultMessage) {
-      logger.error(`[OCPP1.6]: Invalid OCPP call result message received: ${JSON.stringify(payload)}`);
+      logger.error(`[OCPP1.6]: Invalid OCPP call result message received: ${JSON.stringify(data)}`);
       return;
     }
   }
 
-  private async handleCallMessage(payload: Omit<CsMessageReceivedPayload, "message"> & { message: CallMessage<OcppMessageAction> }): Promise<void> {
-    const { message } = payload;
+  private async handleCallMessage(data: Omit<CsMessageReceivedPayload, "message"> & { message: CallMessage<OcppMessageAction> }): Promise<void> {
+    const { message } = data;
     const isValidCallMessage = this.validateOcppCallMessage(message);
 
     if (!isValidCallMessage) {
-      logger.error(`[OCPP1.6]: Invalid OCPP call message received: ${JSON.stringify(payload)}`);
+      logger.error(`[OCPP1.6]: Invalid OCPP call message received: ${JSON.stringify(data)}`);
       return;
     }
 
-    const [,,action] = message;
+    const [,,action, ocppPayload] = message;
+    const { isValid: isValidOcppPayload } = this.validateOcppRequestPayload(action, ocppPayload);
+
+    if (!isValidOcppPayload) {
+      logger.error(`[OCPP1.6]: Invalid OCPP call message payload received: ${JSON.stringify(data)}`);
+      return;
+    }
 
     switch (action) {
     case OcppMessageAction.AUTHORIZE:
@@ -139,8 +145,8 @@ export class Ocpp16Service {
     logger.warn(`[OCPP1.6]: Call Error message received. ${JSON.stringify(payload)}`);
   }
 
-  public async handleOcppMessage(payload: CsMessageReceivedPayload): Promise<void> {
-    const { message } = payload;
+  public async handleOcppMessage(data: CsMessageReceivedPayload): Promise<void> {
+    const { message } = data;
     const ocppMessage: OcppMessage<OcppMessageAction> = JSON.parse(message);
     const isValidOcppMessage = this.validateOcppMessage(ocppMessage);
 
@@ -153,13 +159,13 @@ export class Ocpp16Service {
 
     switch (messageType) {
     case OcppMessageType.ERROR:
-      await this.handleCallErrorMessage({ ...payload, message: ocppMessage });
+      await this.handleCallErrorMessage({ ...data, message: ocppMessage });
       return;
     case OcppMessageType.RESULT:
-      await this.handleCallResultMessage({ ...payload, message: ocppMessage });
+      await this.handleCallResultMessage({ ...data, message: ocppMessage });
       return;
     case OcppMessageType.CALL:
-      await this.handleCallMessage({ ...payload, message: ocppMessage });
+      await this.handleCallMessage({ ...data, message: ocppMessage });
       return;
     }
   }

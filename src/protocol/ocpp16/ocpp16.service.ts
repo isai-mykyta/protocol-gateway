@@ -98,13 +98,50 @@ export class Ocpp16Service {
     return !!this.ocppResponseValidator[action] ? this.validateOcppPayload(payload, this.ocppResponseValidator[action]) : { isValid: true };
   };
 
-  private async handleCallResultMessage(ocppMessage: CallResultMessage): Promise<void> {}
-  private async handleCallMessage(ocppMessage: CallMessage): Promise<void> {}
-  private async handleCallErrorMessage(ocppMessage: CallErrorMessage): Promise<void> {}
+  private async handleCallResultMessage(payload: Omit<CsMessageReceivedPayload, "message"> & { message: CallResultMessage }): Promise<void> {
+    const { message } = payload;
+    const isValidCallResultMessage = this.validateOcppCallResultMessage(message);
+
+    if (!isValidCallResultMessage) {
+      logger.error(`[OCPP1.6]: Invalid OCPP call result message received: ${JSON.stringify(payload)}`);
+      return;
+    }
+  }
+
+  private async handleCallMessage(payload: Omit<CsMessageReceivedPayload, "message"> & { message: CallMessage<OcppMessageAction> }): Promise<void> {
+    const { message } = payload;
+    const isValidCallMessage = this.validateOcppCallMessage(message);
+
+    if (!isValidCallMessage) {
+      logger.error(`[OCPP1.6]: Invalid OCPP call message received: ${JSON.stringify(payload)}`);
+      return;
+    }
+
+    const [,,action] = message;
+
+    switch (action) {
+    case OcppMessageAction.AUTHORIZE:
+      return;
+    case OcppMessageAction.BOOT_NOTIFICATION:
+      return;
+    case OcppMessageAction.METER_VALUES:
+      return;
+    case OcppMessageAction.START_TRANSACTION:
+      return;
+    case OcppMessageAction.STATUS_NOTIFICATION:
+      return;
+    default:
+      return;
+    }
+  }
+
+  private async handleCallErrorMessage(payload: Omit<CsMessageReceivedPayload, "message"> & { message: CallErrorMessage }): Promise<void> {
+    logger.warn(`[OCPP1.6]: Call Error message received. ${JSON.stringify(payload)}`);
+  }
 
   public async handleOcppMessage(payload: CsMessageReceivedPayload): Promise<void> {
     const { message } = payload;
-    const ocppMessage: OcppMessage = JSON.parse(message);
+    const ocppMessage: OcppMessage<OcppMessageAction> = JSON.parse(message);
     const isValidOcppMessage = this.validateOcppMessage(ocppMessage);
 
     if (!isValidOcppMessage) {
@@ -116,13 +153,13 @@ export class Ocpp16Service {
 
     switch (messageType) {
     case OcppMessageType.ERROR:
-      await this.handleCallErrorMessage(ocppMessage);
+      await this.handleCallErrorMessage({ ...payload, message: ocppMessage });
       return;
     case OcppMessageType.RESULT:
-      await this.handleCallResultMessage(ocppMessage);
+      await this.handleCallResultMessage({ ...payload, message: ocppMessage });
       return;
     case OcppMessageType.CALL:
-      await this.handleCallMessage(ocppMessage);
+      await this.handleCallMessage({ ...payload, message: ocppMessage });
       return;
     }
   }

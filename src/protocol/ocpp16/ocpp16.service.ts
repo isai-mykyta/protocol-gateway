@@ -142,33 +142,33 @@ export class Ocpp16Service {
         ...data, 
         message: message as CallMessage<OcppMessageAction.AUTHORIZE, AuthorizeReq> 
       });
-      return;
+      break;
     case OcppMessageAction.BOOT_NOTIFICATION:
       await handleBootNotificationReq({ 
         ...data, 
         message: message as CallMessage<OcppMessageAction.BOOT_NOTIFICATION, BootNotificationReqDto> 
       });
-      return;
+      break;
     case OcppMessageAction.METER_VALUES:
       await handleMeterValuesReq({ 
         ...data, 
         message: message as CallMessage<OcppMessageAction.METER_VALUES, MeterValuesReq> 
       });
-      return;
+      break;
     case OcppMessageAction.START_TRANSACTION:
       await handleStartTransactionReq({ 
         ...data, 
         message: message as CallMessage<OcppMessageAction.START_TRANSACTION, StartTransactionReq> 
       });
-      return;
+      break;
     case OcppMessageAction.STATUS_NOTIFICATION:
       await handleStatusNotificationReq({ 
         ...data, 
         message: message as CallMessage<OcppMessageAction.STATUS_NOTIFICATION, StatusNotificationReq> 
       });
-      return;
+      break;
     default:
-      return;
+      break;
     }
   }
 

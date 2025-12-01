@@ -21,8 +21,19 @@ import {
   StopTransactionReqDto
 } from "./dtos";
 import { 
+  handleAuthorizeReq, 
+  handleBootNotificationReq, 
+  handleMeterValuesReq, 
+  handleStartTransactionReq, 
+  handleStatusNotificationReq
+} from "./handlers";
+import { 
+  AuthorizeReq,
+  MeterValuesReq,
   OcppErrorCode, 
-  OcppMessageAction 
+  OcppMessageAction, 
+  StartTransactionReq,
+  StatusNotificationReq
 } from "./types";
 import { validateDto } from "../../utils";
 
@@ -127,14 +138,34 @@ export class Ocpp16Service {
 
     switch (action) {
     case OcppMessageAction.AUTHORIZE:
+      await handleAuthorizeReq({ 
+        ...data, 
+        message: message as CallMessage<OcppMessageAction.AUTHORIZE, AuthorizeReq> 
+      });
       return;
     case OcppMessageAction.BOOT_NOTIFICATION:
+      await handleBootNotificationReq({ 
+        ...data, 
+        message: message as CallMessage<OcppMessageAction.BOOT_NOTIFICATION, BootNotificationReqDto> 
+      });
       return;
     case OcppMessageAction.METER_VALUES:
+      await handleMeterValuesReq({ 
+        ...data, 
+        message: message as CallMessage<OcppMessageAction.METER_VALUES, MeterValuesReq> 
+      });
       return;
     case OcppMessageAction.START_TRANSACTION:
+      await handleStartTransactionReq({ 
+        ...data, 
+        message: message as CallMessage<OcppMessageAction.START_TRANSACTION, StartTransactionReq> 
+      });
       return;
     case OcppMessageAction.STATUS_NOTIFICATION:
+      await handleStatusNotificationReq({ 
+        ...data, 
+        message: message as CallMessage<OcppMessageAction.STATUS_NOTIFICATION, StatusNotificationReq> 
+      });
       return;
     default:
       return;

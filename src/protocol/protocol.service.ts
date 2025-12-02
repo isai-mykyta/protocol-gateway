@@ -1,4 +1,4 @@
-import { logger } from "@mykyta-isai/logger";
+import { logger } from "@mykyta-isai/node-utils";
 
 import { Ocpp16Service } from "./ocpp16";
 import { Ocpp2Service } from "./ocpp2";

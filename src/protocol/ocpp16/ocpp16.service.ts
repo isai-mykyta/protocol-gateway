@@ -1,4 +1,4 @@
-import { logger } from "@mykyta-isai/logger";
+import { logger } from "@mykyta-isai/node-utils";
 import { ClassConstructor } from "class-transformer";
 
 import { 

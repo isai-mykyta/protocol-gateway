@@ -5,13 +5,14 @@ dotenv.config();
 
 import "reflect-metadata";
 
-import { logger } from "@mykyta-isai/logger";
-
 import { KAFKA_TOPICS } from "./constants";
-import { KafkaConsumer } from "./kafka";
+import { 
+  KafkaConsumer, 
+  logger, 
+  ValkeyService 
+} from "@mykyta-isai/node-utils";
 import { EachMessagePayload } from "kafkajs";
 import { ProtocolService } from "./protocol";
-import { valkeyService } from "./valkey";
 
 const KAFKA_CLIENT_ID = process.env.KAFKA_CLIENT_ID;
 const KAFKA_GROUP_ID = process.env.KAFKA_GROUP_ID;
@@ -32,6 +33,7 @@ const kafkaConsumer = new KafkaConsumer({
   readFromBeginning: false
 });
 
+const valkeyService = new ValkeyService({ clientId: VALKEY_CLIENT_NAME });
 const protocolService = new ProtocolService();
 
 const messageHandler = async (payload: EachMessagePayload): Promise<void> => {
@@ -40,22 +42,27 @@ const messageHandler = async (payload: EachMessagePayload): Promise<void> => {
 
   switch (topic) {
   case KAFKA_TOPICS.CS_MESSAGE_IN:
-    const parsedMessage = message.value.toString();
-    const headers = message.headers || {};
+    try {
+      const parsedMessage = message.value.toString();
+      const headers = message.headers || {};
 
-    const identity = headers.identity?.toString("utf-8");
-    const ipAddress = headers.ipAddress?.toString("utf-8");
-    const protocol = headers.protocol?.toString("utf-8");
-    const timestamp = headers.timestamp?.toString("utf-8");
+      const identity = headers.identity?.toString("utf-8");
+      const ipAddress = headers.ipAddress?.toString("utf-8");
+      const protocol = headers.protocol?.toString("utf-8");
+      const timestamp = headers.timestamp?.toString("utf-8");
 
-    await protocolService.handleCsMessage({
-      message: parsedMessage,
-      identity,
-      ipAddress,
-      protocol,
-      timestamp: Number(timestamp)
-    });
-    return;
+      await protocolService.handleCsMessage({
+        message: parsedMessage,
+        identity,
+        ipAddress,
+        protocol,
+        timestamp: Number(timestamp)
+      });
+      return;
+    } catch (error) {
+      logger.error(`Failed to process message from ${KAFKA_TOPICS.CS_MESSAGE_IN} topic`, error);
+      return;
+    }
   default:
     logger.error(`Received message from uknown topic: topic - ${topic}`);
     return;

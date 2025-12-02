@@ -42,7 +42,7 @@ const disconnectValkeyClient = async (): Promise<void> => {
 export const shutdown = async () => {
   logger.info("Shutting down gracefully...");
 
-  disconnectKafkaConsumer();
-  disconnectKafkaProducer();
-  disconnectValkeyClient();
+  await disconnectKafkaConsumer();
+  await disconnectKafkaProducer();
+  await disconnectValkeyClient();
 };

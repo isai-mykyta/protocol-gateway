@@ -10,10 +10,12 @@ import {
 import { ValkeyOptions } from "./types";
 
 class ValkeyService {
+  private _isConnected: boolean = false;
   private client: GlideClient | GlideClusterClient;
 
   public async destroy(): Promise<void> {
     this.client.close();
+    this._isConnected = false;
   }
 
   public async init(options: ValkeyOptions): Promise<void> {
@@ -32,7 +34,12 @@ class ValkeyService {
       this.client = await GlideClient.createClient(standaloneConfig);
     }
 
+    this._isConnected = true;
     logger.info(`[Valkey] client connected. Cluster mode - ${options.isClusterMode}, client name - ${options.clientName}`);
+  }
+
+  public get isConnected(): boolean {
+    return this._isConnected;
   }
 
   public async set<V>(key: string, value: V, ttlSeconds?: number): Promise<void> {

@@ -11,10 +11,18 @@ import { KAFKA_TOPICS } from "./constants";
 import { KafkaConsumer } from "./kafka";
 import { EachMessagePayload } from "kafkajs";
 import { ProtocolService } from "./protocol";
+import { valkeyService } from "./valkey";
 
 const KAFKA_CLIENT_ID = process.env.KAFKA_CLIENT_ID;
 const KAFKA_GROUP_ID = process.env.KAFKA_GROUP_ID;
 const KAFKA_BROKER_URL = process.env.KAFKA_BROKER_URL;
+
+const VALKEY_HOST = process.env.VALKEY_HOST;
+const VALKEY_USE_TLS = process.env.VALKEY_USE_TLS === "true";
+const VALKEY_USE_CLUSTER_MODE = process.env.VALKEY_USE_CLUSTER_MODE === "true";
+const VALKEY_CLIENT_NAME = process.env.VALKEY_CLIENT_NAME;
+const VALKEY_PORT = Number(process.env.VALKEY_PORT);
+const VALKEY_TIMEOUT = Number(process.env.VALKEY_TIMEOUT);
 
 const kafkaConsumer = new KafkaConsumer({
   topics: [KAFKA_TOPICS.CS_MESSAGE_IN],
@@ -54,7 +62,14 @@ const messageHandler = async (payload: EachMessagePayload): Promise<void> => {
   }
 };
 
-kafkaConsumer.connect(messageHandler);
+valkeyService.init({
+  host: VALKEY_HOST,
+  useTls: VALKEY_USE_TLS,
+  isClusterMode: VALKEY_USE_CLUSTER_MODE,
+  clientName: VALKEY_CLIENT_NAME,
+  port: VALKEY_PORT,
+  timeout: VALKEY_TIMEOUT,
+}).then(() => kafkaConsumer.connect(messageHandler));
 
 const shutdown = async () => {
   logger.info("Shutting down gracefully...");
@@ -65,6 +80,16 @@ const shutdown = async () => {
       await kafkaConsumer.disconnect();
     } catch (error) {
       logger.error("[Kafka] Error disconnecting producer:", error);
+      process.exit(1);
+    }
+  }
+
+  if (valkeyService.isConnected) {
+    try {
+      logger.info("Disconnecting Valkey client...");
+      await valkeyService.destroy();
+    } catch (error) {
+      logger.error("[Valkey] Error disconnecting client:", error);
       process.exit(1);
     }
   }

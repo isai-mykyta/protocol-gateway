@@ -7,13 +7,11 @@ import "reflect-metadata";
 
 import { logger } from "@mykyta-isai/node-utils";
 import { EachMessagePayload } from "kafkajs";
-import { ProtocolService } from "./protocol";
 import { kafkaConsumer, kafkaProducer } from "./kafka";
 import { KAFKA_TOPICS } from "./constants";
 import { valkeyService } from "./valkey";
 import { shutdown } from "./shutdown";
-
-const protocolService = new ProtocolService();
+import { handleCsMessage } from "./protocol";
 
 const messageHandler = async (payload: EachMessagePayload): Promise<void> => {
   const { message, topic } = payload;
@@ -30,7 +28,7 @@ const messageHandler = async (payload: EachMessagePayload): Promise<void> => {
       const protocol = headers.protocol?.toString("utf-8");
       const timestamp = headers.timestamp?.toString("utf-8");
 
-      await protocolService.handleCsMessage({
+      await handleCsMessage({
         message: parsedMessage,
         identity,
         ipAddress,

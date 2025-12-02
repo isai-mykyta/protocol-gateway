@@ -1,236 +1,197 @@
-import { KafkaProducer, logger } from "@mykyta-isai/node-utils";
+import { logger } from "@mykyta-isai/node-utils";
 import { ClassConstructor } from "class-transformer";
 
 import { 
-  CallErrorMessage,
-  CallMessage,
-  CallResultMessage,
-  CsMessageReceivedPayload, 
-  OcppMessage, 
-  OcppMessageType
-} from "../types";
-import { 
-  AuthorizeReqDto, 
-  BootNotificationReqDto, 
+  AuthorizeReqDto,
+  BootNotificationReqDto,
   ChangeConfigurationConfDto, 
-  GetConfigurationConfDto,
-  MeterValuesReqDto,
-  ResetConfDto,
+  GetConfigurationConfDto, 
+  MeterValuesReqDto, 
+  ResetConfDto, 
   StartTransactionReqDto,
   StatusNotificationReqDto,
   StopTransactionReqDto
 } from "./dtos";
 import { 
-  handleAuthorizeReq, 
-  handleBootNotificationReq, 
-  handleMeterValuesReq, 
-  handleStartTransactionReq, 
-  handleStatusNotificationReq
-} from "./handlers";
-import { 
-  AuthorizeReq,
-  MeterValuesReq,
   OcppErrorCode, 
-  OcppMessageAction, 
-  StartTransactionReq,
-  StatusNotificationReq
+  OcppMessageAction,
 } from "./types";
 import { KAFKA_TOPICS } from "../../constants";
+import { kafkaProducer } from "../../kafka";
 import { validateDto } from "../../utils";
+import { 
+  CallErrorMessage,
+  CallMessage, 
+  CallResultMessage, 
+  CsMessageReceivedPayload, 
+  OcppMessage, 
+  OcppMessageType 
+} from "../types";
+import { 
+  handleAuthorizeReq, 
+  handleBootNotificationReq,
+  handleMeterValuesReq,
+  handleStartTransactionReq,
+  handleStatusNotificationReq,
+  handleStopTransactionReq
+} from "./handlers";
 
-export class Ocpp16Service {
-  private ocppResponseValidator = {
-    [OcppMessageAction.CHANGE_CONFIGURATION]: ChangeConfigurationConfDto,
-    [OcppMessageAction.GET_CONFIGURATION]: GetConfigurationConfDto,
-    [OcppMessageAction.RESET]: ResetConfDto,
-  };
+const ocppResponseDtos = {
+  [OcppMessageAction.CHANGE_CONFIGURATION]: ChangeConfigurationConfDto,
+  [OcppMessageAction.GET_CONFIGURATION]: GetConfigurationConfDto,
+  [OcppMessageAction.RESET]: ResetConfDto,
+};
 
-  private ocppRequestValidator = {
-    [OcppMessageAction.BOOT_NOTIFICATION]: BootNotificationReqDto,
-    [OcppMessageAction.AUTHORIZE]: AuthorizeReqDto,
-    [OcppMessageAction.METER_VALUES]: MeterValuesReqDto,
-    [OcppMessageAction.START_TRANSACTION]: StartTransactionReqDto,
-    [OcppMessageAction.STOP_TRANSACTION]: StopTransactionReqDto,
-    [OcppMessageAction.STATUS_NOTIFICATION]: StatusNotificationReqDto
-  };
+const ocppRequestDtos = {
+  [OcppMessageAction.BOOT_NOTIFICATION]: BootNotificationReqDto,
+  [OcppMessageAction.AUTHORIZE]: AuthorizeReqDto,
+  [OcppMessageAction.METER_VALUES]: MeterValuesReqDto,
+  [OcppMessageAction.START_TRANSACTION]: StartTransactionReqDto,
+  [OcppMessageAction.STOP_TRANSACTION]: StopTransactionReqDto,
+  [OcppMessageAction.STATUS_NOTIFICATION]: StatusNotificationReqDto
+};
 
-  constructor (private readonly producer: KafkaProducer) {}
+const ocppRequestHandlers = {
+  [OcppMessageAction.BOOT_NOTIFICATION]: handleBootNotificationReq,
+  [OcppMessageAction.AUTHORIZE]: handleAuthorizeReq,
+  [OcppMessageAction.METER_VALUES]: handleMeterValuesReq,
+  [OcppMessageAction.START_TRANSACTION]: handleStartTransactionReq,
+  [OcppMessageAction.STOP_TRANSACTION]: handleStopTransactionReq,
+  [OcppMessageAction.STATUS_NOTIFICATION]: handleStatusNotificationReq
+};
 
-  private mapErrorConstraintToErrorCode(constraint: string): OcppErrorCode {
-    switch (constraint) {
-    case "isEmail":
-    case "isUUID":
-    case "isDateString":
-    case "isUrl":
-    case "whitelistValidation":
-    case "maxLength":
-    case "minLength":
-    case "length":
-    case "isEnum":
-      return OcppErrorCode.FORMATION_VIOLATION;
+const formationViolationConstraints = [
+  "isEmail",
+  "isUUID",
+  "isDateString",
+  "isUrl",
+  "whitelistValidation",
+  "maxLength",
+  "minLength",
+  "length",
+  "isEnum"
+];
 
-    case "isInt":
-    case "isBoolean":
-    case "isString":
-    case "isNumber":
-      return OcppErrorCode.TYPE_CONSTRAINT_VIOLATION;
+const typeConstraintViolationConstraints = [
+  "isInt",
+  "isBoolean",
+  "isString",
+  "isNumber"
+];
 
-    case "isNotEmpty":
-      return OcppErrorCode.PROTOCOL_ERROR;
-        
-    case "customValidation":
-      return OcppErrorCode.NOT_IMPLEMENTED;
-        
-    default:
-      return OcppErrorCode.GENERIC_ERROR;
-    }
+const protocolErrrorConstraints = ["isNotEmpty"];
+const notImplementedConstraints = ["customValidation"];
+
+const mapErrorConstraintToErrorCode = (constraint: string): OcppErrorCode => {
+  if (formationViolationConstraints.includes(constraint)) return OcppErrorCode.FORMATION_VIOLATION;
+  if (typeConstraintViolationConstraints.includes(constraint)) return OcppErrorCode.TYPE_CONSTRAINT_VIOLATION;
+  if (protocolErrrorConstraints.includes(constraint)) return OcppErrorCode.PROTOCOL_ERROR;
+  if (notImplementedConstraints.includes(constraint)) return OcppErrorCode.NOT_IMPLEMENTED;
+  return OcppErrorCode.GENERIC_ERROR;
+};
+
+const validateOcppPayload = <P>(payload: P, validator: ClassConstructor<any>): { isValid: boolean, errorCode?: OcppErrorCode } => {
+  const { isValid, errors } = validateDto(payload, validator);
+  return { isValid, errorCode: !isValid ? mapErrorConstraintToErrorCode(errors[0].constraint) : undefined };
+};
+
+const validateOcppMessage = (message: OcppMessage<unknown>): boolean => {
+  const [messageType] = message;
+  return Array.isArray(message) && [2, 3, 4].includes(messageType);
+};
+
+const validateOcppCallMessage = (message: CallMessage<unknown>): boolean => {
+  return message?.[0] === OcppMessageType.CALL && message.length === 4;
+};
+
+const validateOcppCallResultMessage = (message: CallResultMessage<unknown>): boolean => {
+  return message?.[0] === OcppMessageType.RESULT && message.length === 3;
+};
+
+const validateOcppRequestPayload = <P>(action: OcppMessageAction, payload: P): { isValid: boolean, errorCode?: OcppErrorCode } => {
+  return !!ocppRequestDtos[action] ? validateOcppPayload(payload, ocppRequestDtos[action]) : { isValid: false, errorCode: OcppErrorCode.NOT_IMPLEMENTED };
+};
+
+const validateOcppResponsePayload = <P>(action: OcppMessageAction, payload: P): { isValid: boolean, errorCode?: OcppErrorCode } => {
+  return !!ocppResponseDtos[action] ? validateOcppPayload(payload, ocppResponseDtos[action]) : { isValid: true };
+};
+
+const publishOcppResponse = async (resposnse: string, identity: string): Promise<void> => {
+  try {
+    await kafkaProducer.publish(KAFKA_TOPICS.CS_MESSAGE_OUT, resposnse, identity, { identity });
+    return;
+  } catch (error) {
+    logger.error(`[OCPP1.6]: Failed to publish OCPP response: response - ${resposnse}`, error);
+    return;
+  }
+};
+
+const handleCallResultMessage = async (data: Omit<CsMessageReceivedPayload, "message"> & { message: CallResultMessage }): Promise<void> => {
+  const { message } = data;
+  const isValidCallResultMessage = validateOcppCallResultMessage(message);
+
+  if (!isValidCallResultMessage) {
+    logger.error(`[OCPP1.6]: Invalid OCPP call result message received: ${JSON.stringify(data)}`);
+    return;
+  }
+};
+
+const handleCallErrorMessage = async (payload: Omit<CsMessageReceivedPayload, "message"> & { message: CallErrorMessage }): Promise<void> => {
+  logger.warn(`[OCPP1.6]: Call Error message received. ${JSON.stringify(payload)}`);
+};
+
+const handleCallMessage = async (data: Omit<CsMessageReceivedPayload, "message"> & { message: CallMessage<OcppMessageAction> }): Promise<void> => {
+  const { message, identity } = data;
+  const isValidCallMessage = validateOcppCallMessage(message);
+
+  if (!isValidCallMessage) {
+    logger.error(`[OCPP1.6]: Invalid OCPP call message received: ${JSON.stringify(data)}`);
+    return;
   }
 
-  private validateOcppPayload<P>(payload: P, validator: ClassConstructor<any>): { isValid: boolean, errorCode?: OcppErrorCode } {
-    const { isValid, errors } = validateDto(payload, validator);
-    return { isValid, errorCode: !isValid ? this.mapErrorConstraintToErrorCode(errors[0].constraint) : undefined };
-  };
+  const [, messageId, action, ocppPayload] = message;
+  const { isValid: isValidOcppPayload, errorCode } = validateOcppRequestPayload(action, ocppPayload);
 
-  private validateOcppMessage(message: OcppMessage<unknown>): boolean {
-    const [messageType] = message;
-    return Array.isArray(message) && [2, 3, 4].includes(messageType);
-  };
-
-  private validateOcppCallMessage(message: CallMessage<unknown>): boolean {
-    return message?.[0] === OcppMessageType.CALL && message.length === 4;
-  };
-
-  private validateOcppCallResultMessage(message: CallResultMessage<unknown>): boolean {
-    return message?.[0] === OcppMessageType.RESULT && message.length === 3;
-  };
-
-  private validateOcppRequestPayload<P>(action: OcppMessageAction, payload: P): { isValid: boolean, errorCode?: OcppErrorCode } {
-    return !!this.ocppRequestValidator[action] ? this.validateOcppPayload(payload, this.ocppRequestValidator[action]) : { isValid: false, errorCode: OcppErrorCode.NOT_IMPLEMENTED };
-  };
-
-  private validateOcppResponsePayload<P>(action: OcppMessageAction, payload: P): { isValid: boolean, errorCode?: OcppErrorCode } {
-    return !!this.ocppResponseValidator[action] ? this.validateOcppPayload(payload, this.ocppResponseValidator[action]) : { isValid: true };
-  };
-
-  private async handleCallResultMessage(data: Omit<CsMessageReceivedPayload, "message"> & { message: CallResultMessage }): Promise<void> {
-    const { message } = data;
-    const isValidCallResultMessage = this.validateOcppCallResultMessage(message);
-
-    if (!isValidCallResultMessage) {
-      logger.error(`[OCPP1.6]: Invalid OCPP call result message received: ${JSON.stringify(data)}`);
-      return;
-    }
+  if (!isValidOcppPayload) {
+    logger.error(`[OCPP1.6]: Invalid OCPP call message payload received: ${JSON.stringify(data)}`);
+    const response = [OcppMessageType.RESULT, messageId, errorCode, "", "{}"];
+    await publishOcppResponse(JSON.stringify(response), identity);
+    return;
   }
 
-  private async handleCallMessage(data: Omit<CsMessageReceivedPayload, "message"> & { message: CallMessage<OcppMessageAction> }): Promise<void> {
-    const { message, identity } = data;
-    const isValidCallMessage = this.validateOcppCallMessage(message);
-
-    if (!isValidCallMessage) {
-      logger.error(`[OCPP1.6]: Invalid OCPP call message received: ${JSON.stringify(data)}`);
-      return;
-    }
-
-    const [, messageId, action, ocppPayload] = message;
-    const { isValid: isValidOcppPayload, errorCode } = this.validateOcppRequestPayload(action, ocppPayload);
-
-    if (!isValidOcppPayload) {
-      logger.error(`[OCPP1.6]: Invalid OCPP call message payload received: ${JSON.stringify(data)}`);
-      const response = [OcppMessageType.RESULT, messageId, errorCode, "", "{}"];
-      const stringifiedResponse = JSON.stringify(response);
-
-      try {
-        await this.producer.publish(KAFKA_TOPICS.CS_MESSAGE_OUT, stringifiedResponse, identity, { identity });
-        return;
-      } catch (error) {
-        logger.error(`[OCPP1.6]: Failed to publish OCPP response: response - ${stringifiedResponse}`, error);
-        return;
-      }
-    }
-
-    let responsePayload: Record<string, unknown>;
-
-    switch (action) {
-    case OcppMessageAction.AUTHORIZE:
-      responsePayload = await handleAuthorizeReq({ 
-        ...data, 
-        message: message as CallMessage<OcppMessageAction.AUTHORIZE, AuthorizeReq> 
-      });
-      break;
-    case OcppMessageAction.BOOT_NOTIFICATION:
-      responsePayload = await handleBootNotificationReq({ 
-        ...data, 
-        message: message as CallMessage<OcppMessageAction.BOOT_NOTIFICATION, BootNotificationReqDto> 
-      });
-      break;
-    case OcppMessageAction.METER_VALUES:
-      responsePayload = await handleMeterValuesReq({ 
-        ...data, 
-        message: message as CallMessage<OcppMessageAction.METER_VALUES, MeterValuesReq> 
-      });
-      break;
-    case OcppMessageAction.START_TRANSACTION:
-      responsePayload = await handleStartTransactionReq({ 
-        ...data, 
-        message: message as CallMessage<OcppMessageAction.START_TRANSACTION, StartTransactionReq> 
-      });
-      break;
-    case OcppMessageAction.STATUS_NOTIFICATION:
-      responsePayload = await handleStatusNotificationReq({ 
-        ...data, 
-        message: message as CallMessage<OcppMessageAction.STATUS_NOTIFICATION, StatusNotificationReq> 
-      });
-      break;
-    default:
-      logger.error(`[OCPP1.6]: Unknow action received: action - ${action}`);
-      const response = [OcppMessageType.RESULT, messageId, OcppErrorCode.NOT_IMPLEMENTED, "", "{}"];
-      const stringifiedResponse = JSON.stringify(response);
-
-      try {
-        await this.producer.publish(KAFKA_TOPICS.CS_MESSAGE_OUT, stringifiedResponse, identity, { identity });
-        return;
-      } catch (error) {
-        logger.error(`[OCPP1.6]: Failed to publish OCPP response: response - ${stringifiedResponse}`, error);
-        return;
-      }
-    }
-
-    const response = [OcppMessageType.RESULT, messageId, responsePayload];
-    const stringifiedResponse = JSON.stringify(response);
-
-    try {
-      await this.producer.publish(KAFKA_TOPICS.CS_MESSAGE_OUT, stringifiedResponse, identity, { identity });
-    } catch (error) {
-      logger.error(`[OCPP1.6]: Failed to publish OCPP response: response - ${stringifiedResponse}`, error);
-    }
+  if (!ocppRequestHandlers[action]) {
+    logger.error(`[OCPP1.6]: Unknow action received: action - ${action}`);
+    const response = [OcppMessageType.RESULT, messageId, OcppErrorCode.NOT_IMPLEMENTED, "", "{}"];
+    await publishOcppResponse(JSON.stringify(response), identity);
+    return;
   }
 
-  private async handleCallErrorMessage(payload: Omit<CsMessageReceivedPayload, "message"> & { message: CallErrorMessage }): Promise<void> {
-    logger.warn(`[OCPP1.6]: Call Error message received. ${JSON.stringify(payload)}`);
+  const responsePayload = await ocppRequestHandlers[action]({ ...data, message });
+  const response = [OcppMessageType.RESULT, messageId, responsePayload];
+  await publishOcppResponse(JSON.stringify(response), identity);
+};
+
+export const handleOcppMessage = async (data: CsMessageReceivedPayload): Promise<void> => {
+  const { message } = data;
+  const ocppMessage: OcppMessage<OcppMessageAction> = JSON.parse(message);
+  const isValidOcppMessage = validateOcppMessage(ocppMessage);
+
+  if (!isValidOcppMessage) {
+    logger.error(`[OCPP1.6]: Invalid OCPP message received: ${message}`);
+    return;
   }
 
-  public async handleOcppMessage(data: CsMessageReceivedPayload): Promise<void> {
-    const { message } = data;
-    const ocppMessage: OcppMessage<OcppMessageAction> = JSON.parse(message);
-    const isValidOcppMessage = this.validateOcppMessage(ocppMessage);
+  const [ messageType ] = ocppMessage;
 
-    if (!isValidOcppMessage) {
-      logger.error(`[OCPP1.6]: Invalid OCPP message received: ${message}`);
-      return;
-    }
-
-    const [ messageType ] = ocppMessage;
-
-    switch (messageType) {
-    case OcppMessageType.ERROR:
-      await this.handleCallErrorMessage({ ...data, message: ocppMessage });
-      return;
-    case OcppMessageType.RESULT:
-      await this.handleCallResultMessage({ ...data, message: ocppMessage });
-      return;
-    case OcppMessageType.CALL:
-      await this.handleCallMessage({ ...data, message: ocppMessage });
-      return;
-    }
+  switch (messageType) {
+  case OcppMessageType.ERROR:
+    await handleCallErrorMessage({ ...data, message: ocppMessage });
+    return;
+  case OcppMessageType.RESULT:
+    await handleCallResultMessage({ ...data, message: ocppMessage });
+    return;
+  case OcppMessageType.CALL:
+    await handleCallMessage({ ...data, message: ocppMessage });
+    return;
   }
-}
+};

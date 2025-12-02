@@ -1,46 +1,40 @@
 import { logger } from "@mykyta-isai/node-utils";
 
-import { Ocpp16Service } from "./ocpp16";
-import { Ocpp2Service } from "./ocpp2";
+import { handleOcppMessage as handleOcpp16Message } from "./ocpp16";
+import { handleOcppMessage as handleOcpp2Message } from "./ocpp2";
 import { CsMessageReceivedPayload, OcppProtocol } from "./types";
-import { kafkaProducer } from "../kafka";
 
-export class ProtocolService {
-  private readonly ocpp16Protocol = new Ocpp16Service(kafkaProducer);
-  private readonly ocpp2Protocol = new Ocpp2Service();
+const ocppProtocolHandlers = {
+  [OcppProtocol.OCPP16]: handleOcpp16Message,
+  [OcppProtocol.OCPP20]: handleOcpp2Message,
+  [OcppProtocol.OCPP21]: handleOcpp2Message,
+  [OcppProtocol.OCPP201]: handleOcpp2Message,
+};
 
-  private validateCsMessage(payload: CsMessageReceivedPayload): boolean {
-    const { message, identity, ipAddress, protocol, timestamp } = payload;
+const validateCsMessage = (payload: CsMessageReceivedPayload): boolean => {
+  const { message, identity, ipAddress, protocol, timestamp } = payload;
 
-    const isValidMessage = !!message && typeof message === "string";
-    const isValidIdentity = !!identity && typeof identity === "string";
-    const isValidIpAddress = !!ipAddress && typeof ipAddress === "string";
-    const isValidProtocol = !!protocol && Object.values(OcppProtocol).includes(protocol as OcppProtocol);
-    const isValidTimestamp = !!timestamp && typeof timestamp === "number";
+  const isValidMessage = !!message && typeof message === "string";
+  const isValidIdentity = !!identity && typeof identity === "string";
+  const isValidIpAddress = !!ipAddress && typeof ipAddress === "string";
+  const isValidProtocol = !!protocol && Object.values(OcppProtocol).includes(protocol as OcppProtocol);
+  const isValidTimestamp = !!timestamp && typeof timestamp === "number";
 
-    return isValidMessage && isValidIdentity && isValidIpAddress && isValidProtocol && isValidTimestamp;
+  return isValidMessage && isValidIdentity && isValidIpAddress && isValidProtocol && isValidTimestamp;
+};
+
+export const handleCsMessage = async (payload: CsMessageReceivedPayload): Promise<void> => {
+  logger.info(`CS message received: ${JSON.stringify(payload)}`);
+
+  if (!validateCsMessage(payload)) {
+    logger.error(`Invalid CS message: ${JSON.stringify(payload)}`);
+    return;
   }
 
-  public async handleCsMessage(payload: CsMessageReceivedPayload): Promise<void> {
-    logger.info(`CS message received: ${JSON.stringify(payload)}`);
-
-    if (!this.validateCsMessage(payload)) {
-      logger.error(`Invalid CS message: ${JSON.stringify(payload)}`);
-      return;
-    }
-
-    switch (payload.protocol) {
-    case OcppProtocol.OCPP16:
-      await this.ocpp16Protocol.handleOcppMessage(payload);
-      return;
-    case OcppProtocol.OCPP20:
-    case OcppProtocol.OCPP201:
-    case OcppProtocol.OCPP21:
-      await this.ocpp2Protocol.handleOcppMessage(payload);
-      return;
-    default:
-      logger.error(`Recieved message with invalid protocol`);
-      return;
-    }
+  if (!ocppProtocolHandlers[payload.protocol]) {
+    logger.error(`Recieved message with invalid protocol`);
+    return;
   }
-}
+
+  await ocppProtocolHandlers[payload.protocol](payload);
+};

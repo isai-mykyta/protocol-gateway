@@ -1,1 +1,1 @@
-export * from "./ocpp2service";
+export * from "./ocpp2.service";

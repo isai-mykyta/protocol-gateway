@@ -412,3 +412,5 @@ export type IdTagInfo = {
 export type StopTransactionConf = {
   idTagInfo: IdTagInfo;
 }
+
+export type StatusNotificationConf = {}

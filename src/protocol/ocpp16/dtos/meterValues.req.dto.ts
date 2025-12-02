@@ -14,41 +14,13 @@ import {
 } from "class-validator";
 
 import { 
+  Location,
   Measurand, 
   Phase, 
   ReadingContext, 
   UnitOfMeasure, 
   ValueFormat 
 } from "../types";
-
-export class MeterValuesReqDto {
-  @IsNotEmpty()
-  @IsInt()
-  @Min(0)
-  public connectorId: number;
-
-  @IsOptional()
-  @IsNumber()
-  @IsPositive()
-  public transactionId?: number;
-
-  @IsNotEmpty()
-  @IsObject()
-  @ValidateNested()
-  @Type(() => MeterValueDto)
-  public meterValue: MeterValueDto;
-}
-
-export class MeterValueDto {
-  @IsNotEmpty()
-  @IsString()
-  public timestamp: string;
-
-  @IsArray()
-  @ValidateNested({ each: true })
-  @Type(() => SampledValueDto)
-  public sampledValue: SampledValueDto[];
-}
 
 export class SampledValueDto {
   @IsNotEmpty()
@@ -78,4 +50,33 @@ export class SampledValueDto {
   @IsOptional()
   @IsEnum(UnitOfMeasure)
   public unit?: UnitOfMeasure;
+}
+
+export class MeterValueDto {
+  @IsNotEmpty()
+  @IsString()
+  public timestamp: string;
+
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => SampledValueDto)
+  public sampledValue: SampledValueDto[];
+}
+
+export class MeterValuesReqDto {
+  @IsNotEmpty()
+  @IsInt()
+  @Min(0)
+  public connectorId: number;
+
+  @IsOptional()
+  @IsNumber()
+  @IsPositive()
+  public transactionId?: number;
+
+  @IsNotEmpty()
+  @IsObject()
+  @ValidateNested()
+  @Type(() => MeterValueDto)
+  public meterValue: MeterValueDto;
 }

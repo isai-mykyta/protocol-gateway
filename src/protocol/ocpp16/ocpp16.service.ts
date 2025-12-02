@@ -35,6 +35,7 @@ import {
   StartTransactionReq,
   StatusNotificationReq
 } from "./types";
+import { KAFKA_TOPICS } from "../../constants";
 import { validateDto } from "../../utils";
 
 export class Ocpp16Service {
@@ -122,7 +123,7 @@ export class Ocpp16Service {
   }
 
   private async handleCallMessage(data: Omit<CsMessageReceivedPayload, "message"> & { message: CallMessage<OcppMessageAction> }): Promise<void> {
-    const { message } = data;
+    const { message, identity } = data;
     const isValidCallMessage = this.validateOcppCallMessage(message);
 
     if (!isValidCallMessage) {
@@ -135,42 +136,72 @@ export class Ocpp16Service {
 
     if (!isValidOcppPayload) {
       logger.error(`[OCPP1.6]: Invalid OCPP call message payload received: ${JSON.stringify(data)}`);
-      return;
+      const response = [OcppMessageType.RESULT, messageId, errorCode, "", "{}"];
+      const stringifiedResponse = JSON.stringify(response);
+
+      try {
+        await this.producer.publish(KAFKA_TOPICS.CS_MESSAGE_OUT, stringifiedResponse, identity, { identity });
+        return;
+      } catch (error) {
+        logger.error(`[OCPP1.6]: Failed to publish OCPP response: response - ${stringifiedResponse}`, error);
+        return;
+      }
     }
+
+    let responsePayload: Record<string, unknown>;
 
     switch (action) {
     case OcppMessageAction.AUTHORIZE:
-      await handleAuthorizeReq({ 
+      responsePayload = await handleAuthorizeReq({ 
         ...data, 
         message: message as CallMessage<OcppMessageAction.AUTHORIZE, AuthorizeReq> 
       });
       break;
     case OcppMessageAction.BOOT_NOTIFICATION:
-      await handleBootNotificationReq({ 
+      responsePayload = await handleBootNotificationReq({ 
         ...data, 
         message: message as CallMessage<OcppMessageAction.BOOT_NOTIFICATION, BootNotificationReqDto> 
       });
       break;
     case OcppMessageAction.METER_VALUES:
-      await handleMeterValuesReq({ 
+      responsePayload = await handleMeterValuesReq({ 
         ...data, 
         message: message as CallMessage<OcppMessageAction.METER_VALUES, MeterValuesReq> 
       });
       break;
     case OcppMessageAction.START_TRANSACTION:
-      await handleStartTransactionReq({ 
+      responsePayload = await handleStartTransactionReq({ 
         ...data, 
         message: message as CallMessage<OcppMessageAction.START_TRANSACTION, StartTransactionReq> 
       });
       break;
     case OcppMessageAction.STATUS_NOTIFICATION:
-      await handleStatusNotificationReq({ 
+      responsePayload = await handleStatusNotificationReq({ 
         ...data, 
         message: message as CallMessage<OcppMessageAction.STATUS_NOTIFICATION, StatusNotificationReq> 
       });
       break;
     default:
-      break;
+      logger.error(`[OCPP1.6]: Unknow action received: action - ${action}`);
+      const response = [OcppMessageType.RESULT, messageId, OcppErrorCode.NOT_IMPLEMENTED, "", "{}"];
+      const stringifiedResponse = JSON.stringify(response);
+
+      try {
+        await this.producer.publish(KAFKA_TOPICS.CS_MESSAGE_OUT, stringifiedResponse, identity, { identity });
+        return;
+      } catch (error) {
+        logger.error(`[OCPP1.6]: Failed to publish OCPP response: response - ${stringifiedResponse}`, error);
+        return;
+      }
+    }
+
+    const response = [OcppMessageType.RESULT, messageId, responsePayload];
+    const stringifiedResponse = JSON.stringify(response);
+
+    try {
+      await this.producer.publish(KAFKA_TOPICS.CS_MESSAGE_OUT, stringifiedResponse, identity, { identity });
+    } catch (error) {
+      logger.error(`[OCPP1.6]: Failed to publish OCPP response: response - ${stringifiedResponse}`, error);
     }
   }
 

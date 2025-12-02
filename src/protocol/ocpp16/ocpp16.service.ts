@@ -1,4 +1,4 @@
-import { logger } from "@mykyta-isai/node-utils";
+import { KafkaProducer, logger } from "@mykyta-isai/node-utils";
 import { ClassConstructor } from "class-transformer";
 
 import { 
@@ -52,6 +52,8 @@ export class Ocpp16Service {
     [OcppMessageAction.STOP_TRANSACTION]: StopTransactionReqDto,
     [OcppMessageAction.STATUS_NOTIFICATION]: StatusNotificationReqDto
   };
+
+  constructor (private readonly producer: KafkaProducer) {}
 
   private mapErrorConstraintToErrorCode(constraint: string): OcppErrorCode {
     switch (constraint) {
@@ -128,8 +130,8 @@ export class Ocpp16Service {
       return;
     }
 
-    const [,,action, ocppPayload] = message;
-    const { isValid: isValidOcppPayload } = this.validateOcppRequestPayload(action, ocppPayload);
+    const [, messageId, action, ocppPayload] = message;
+    const { isValid: isValidOcppPayload, errorCode } = this.validateOcppRequestPayload(action, ocppPayload);
 
     if (!isValidOcppPayload) {
       logger.error(`[OCPP1.6]: Invalid OCPP call message payload received: ${JSON.stringify(data)}`);

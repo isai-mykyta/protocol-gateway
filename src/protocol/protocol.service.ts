@@ -3,9 +3,10 @@ import { logger } from "@mykyta-isai/node-utils";
 import { Ocpp16Service } from "./ocpp16";
 import { Ocpp2Service } from "./ocpp2";
 import { CsMessageReceivedPayload, OcppProtocol } from "./types";
+import { kafkaProducer } from "../kafka";
 
 export class ProtocolService {
-  private readonly ocpp16Protocol = new Ocpp16Service();
+  private readonly ocpp16Protocol = new Ocpp16Service(kafkaProducer);
   private readonly ocpp2Protocol = new Ocpp2Service();
 
   private validateCsMessage(payload: CsMessageReceivedPayload): boolean {

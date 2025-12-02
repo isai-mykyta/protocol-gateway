@@ -31,6 +31,7 @@
   },
   "dependencies": {
     "@mykyta-isai/logger": "^1.0.5",
+    "@valkey/valkey-glide": "^2.2.0",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.3",
     "dotenv": "^17.2.2",

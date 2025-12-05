@@ -1,7 +1,7 @@
 import { logger } from "@mykyta-isai/node-utils";
 
-import { handleOcppMessage as handleOcpp16Message } from "./ocpp16";
-import { handleOcppMessage as handleOcpp2Message } from "./ocpp2";
+import { handleOcpp16Message } from "./ocpp16";
+import { handleOcpp2Message } from "./ocpp2";
 import { CsMessageReceivedPayload, OcppProtocol } from "./types";
 
 const ocppProtocolHandlers = {

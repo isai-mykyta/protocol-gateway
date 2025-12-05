@@ -1,3 +1,3 @@
 import { CsMessageReceivedPayload } from "../types";
 
-export const handleOcppMessage = async (data: CsMessageReceivedPayload): Promise<void> => {};
+export const handleOcpp2Message = async (data: CsMessageReceivedPayload): Promise<void> => {};

@@ -171,7 +171,7 @@ const handleCallMessage = async (data: Omit<CsMessageReceivedPayload, "message">
   await publishOcppResponse(JSON.stringify(response), identity);
 };
 
-export const handleOcppMessage = async (data: CsMessageReceivedPayload): Promise<void> => {
+export const handleOcpp16Message = async (data: CsMessageReceivedPayload): Promise<void> => {
   const { message } = data;
   const ocppMessage: OcppMessage<OcppMessageAction> = JSON.parse(message);
   const isValidOcppMessage = validateOcppMessage(ocppMessage);

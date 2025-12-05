@@ -699,10 +699,10 @@
   resolved "https://registry.yarnpkg.com/@mykyta-isai/eslint-config/-/eslint-config-1.0.3.tgz#293ad169e5c2fa2bf39cd76f50299f93214650de"
   integrity sha512-1RZ4g2uiF3V0gVqz5YE3zjKPSclou4JqrB7E112TH3EdTee6q4bSV/MDYoDzoMYlQWdJ46acjwXtlEu/QIz0eA==
 
-"@mykyta-isai/node-utils@^1.0.0":
-  version "1.0.0"
-  resolved "https://registry.yarnpkg.com/@mykyta-isai/node-utils/-/node-utils-1.0.0.tgz#8934f126f08bebda029974d2ff7d3188c59d7ac8"
-  integrity sha512-JxLjlv8I3DWO98IdZ+fun5QgNU0FwiGTSIAloIUxs3MNZcweEr0N4tzC9qFF0gZdopQBln+7SIzfRjjs2JPSTQ==
+"@mykyta-isai/node-utils@^1.0.1":
+  version "1.0.1"
+  resolved "https://registry.yarnpkg.com/@mykyta-isai/node-utils/-/node-utils-1.0.1.tgz#7de97848cfe5a15455772449693d29de71fec539"
+  integrity sha512-a/S5S3YUEDtbbC4OOrWGMIIeFygJQe6wwWP7WH+ulC/dCHD7xdjPeLZ/v8a5NucBjRQbDEWl85GHSB7mse0alA==
   dependencies:
     "@valkey/valkey-glide" "^2.2.0"
     axios "^1.13.2"
